@@ -4,94 +4,109 @@
   
   Senaryo: ~100x100m alanda kayıp kişi arama
   
-  Yerleşim (kuşbakışı):
+  ÖNEMLİ: PX4 SITL'in çalışması için şu plugin'ler ŞART:
+  - Imu: Accelerometer + Gyroscope (yoksa "Accel/Gyro missing")
+  - AirPressure: Barometre (yoksa "barometer missing")
+  - NavSat: GPS verisi
+  - Sensors: Kamera ve diğer sensörler
+  - Contact: Zemin teması
   
-       KUZEY (+Y)
-         |
-    B1 B2|     B4
-    B3   |        AÇIK ALAN
-  -------+----------------> DOĞU (+X)
-         |
-    B5   |  B6  B7
-         |
-  
-  B1-B7: Binalar (box geometry)
-  Batı taraf: Binalar sık → occlusion testi
-  Doğu taraf: Açık alan → search/tracking testi
-  
-  Koordinat sistemi: ENU (East-North-Up) - Gazebo varsayılanı
+  Ayrıca gravity, magnetic_field ve spherical_coordinates tanımları
+  olmadan PX4 sensör kalibrasyonu yapamaz.
 -->
 <sdf version="1.9">
   <world name="search_area">
 
     <!-- ============================================================
-         PHYSICS - Simülasyon fizik ayarları
-         real_time_factor=1.0: Gerçek zamanlı çalış
-         max_step_size: Her physics adımında 1ms ilerle
+         PHYSICS
+         max_step_size=0.004: PX4 SITL lockstep bunu bekler
+         0.001 verirsek sim 4x yavaşlar, PX4 timeout alır
          ============================================================ -->
-    <physics name="1ms" type="ode">
-      <max_step_size>0.001</max_step_size>
+    <physics type="ode">
+      <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
-      <real_time_update_rate>1000</real_time_update_rate>
+      <real_time_update_rate>250</real_time_update_rate>
     </physics>
 
     <!-- ============================================================
-         PLUGINS - Gazebo'nun çalışması için gereken sistem pluginleri
-         Bunlar olmadan fizik, sensör, sahne render'ı çalışmaz
+         SİSTEM PLUGİNLERİ - PX4 SITL bunların HEPSİNİ gerektirir
          ============================================================ -->
-
-    <!-- Fizik motoru -->
-    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
-
-    <!-- Sensör verisi üretimi (kamera, lidar vs.) -->
-    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+    <plugin name="gz::sim::systems::Physics" filename="gz-sim-physics-system"/>
+    <plugin name="gz::sim::systems::UserCommands" filename="gz-sim-user-commands-system"/>
+    <plugin name="gz::sim::systems::SceneBroadcaster" filename="gz-sim-scene-broadcaster-system"/>
+    <plugin name="gz::sim::systems::Contact" filename="gz-sim-contact-system"/>
+    <plugin name="gz::sim::systems::Imu" filename="gz-sim-imu-system"/>
+    <plugin name="gz::sim::systems::AirPressure" filename="gz-sim-air-pressure-system"/>
+    <plugin name="gz::sim::systems::ApplyLinkWrench" filename="gz-sim-apply-link-wrench-system"/>
+    <plugin name="gz::sim::systems::NavSat" filename="gz-sim-navsat-system"/>
+    <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
       <render_engine>ogre2</render_engine>
     </plugin>
 
-    <!-- Sahne render (görsel) -->
-    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <!-- ============================================================
+         DÜNYA FİZİK PARAMETRELERİ
+         PX4'ün EKF2 (Extended Kalman Filter) için gerekli
+         ============================================================ -->
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
 
-    <!-- Kullanıcı komutları (model spawn/delete vs.) -->
-    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <!-- GPS datum: PX4'e "dünyada neredeyiz" bilgisi verir
+         Koordinatlar: Zürih (PX4 default) -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>47.397971057728974</latitude_deg>
+      <longitude_deg>8.546163739800146</longitude_deg>
+      <elevation>0</elevation>
+    </spherical_coordinates>
 
     <!-- ============================================================
-         SAHNE AYARLARI - Arka plan rengi, gölgeler
+         SAHNE AYARLARI
          ============================================================ -->
     <scene>
-      <ambient>0.8 0.8 0.8 1.0</ambient>     <!-- Ortam ışığı (gölgelerdeki minimum aydınlık) -->
-      <background>0.53 0.81 0.92 1.0</background> <!-- Gökyüzü rengi (açık mavi) -->
+      <grid>false</grid>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
       <shadows>true</shadows>
     </scene>
 
     <!-- ============================================================
          IŞIK - Güneş
-         direction: Işığın geldiği yön vektörü
-         Negatif Z = yukarıdan aşağı, hafif açılı = gölge oluşturur
          ============================================================ -->
-    <light type="directional" name="sun">
+    <light name="sunUTC" type="directional">
+      <pose>0 0 500 0 0 0</pose>
       <cast_shadows>true</cast_shadows>
-      <pose>0 0 100 0 0 0</pose>
-      <diffuse>1.0 1.0 1.0 1</diffuse>
-      <specular>0.5 0.5 0.5 1</specular>
-      <direction>-0.5 0.1 -0.9</direction>
+      <intensity>1</intensity>
+      <direction>0.001 0.625 -0.78</direction>
+      <diffuse>0.904 0.904 0.904 1</diffuse>
+      <specular>0.271 0.271 0.271 1</specular>
+      <attenuation>
+        <range>2000</range>
+        <linear>0</linear>
+        <constant>1</constant>
+        <quadratic>0</quadratic>
+      </attenuation>
     </light>
 
     <!-- ============================================================
-         ZEMİN - 100x100m düz alan
-         collision: Fizik motoru için çarpışma geometrisi
-         visual: Render için görsel geometri
-         İkisi aynı boyutta ama ayrı tanımlanır (Gazebo convention)
+         ZEMİN - 120x120m düz alan
          ============================================================ -->
     <model name="ground_plane">
-      <static>true</static>  <!-- Fizik simülasyonunda hareket etmez -->
+      <static>true</static>
       <link name="link">
         <collision name="collision">
           <geometry>
             <plane>
-              <normal>0 0 1</normal>      <!-- Düzlemin normal vektörü: yukarı -->
-              <size>120 120</size>         <!-- Biraz büyük tut, kenar efekti olmasın -->
+              <normal>0 0 1</normal>
+              <size>120 120</size>
             </plane>
           </geometry>
+          <surface>
+            <friction><ode/></friction>
+            <bounce/>
+            <contact/>
+          </surface>
         </collision>
         <visual name="visual">
           <geometry>
@@ -101,7 +116,7 @@
             </plane>
           </geometry>
           <material>
-            <ambient>0.45 0.55 0.37 1</ambient>   <!-- Çimensi yeşil -->
+            <ambient>0.45 0.55 0.37 1</ambient>
             <diffuse>0.45 0.55 0.37 1</diffuse>
           </material>
         </visual>
@@ -109,58 +124,38 @@
     </model>
 
     <!-- ============================================================
-         BİNALAR
-         
-         Her bina bir static model, box geometry.
-         Boyutlar: gerçekçi (genişlik x derinlik x yükseklik)
-         
-         pose formatı: x y z roll pitch yaw
-         z değeri = yükseklik/2 çünkü box origin'i merkezde
-         
-         Neden farklı boyutlar?
-         - Küçük binalar: drone aradan geçebilir
-         - Büyük binalar: tam occlusion
-         - Farklı yükseklikler: drone irtifasına göre görüş testi
+         BİNALAR - Box geometry, occlusion testi için
+         z = yükseklik/2 (box origin merkezde)
          ============================================================ -->
 
-    <!-- === BATI TARAFI: Sık binalar (occlusion bölgesi) === -->
+    <!-- === BATI: Sık binalar (occlusion bölgesi) === -->
 
-    <!-- B1: Büyük bina, kuzeybatı -->
     <model name="building_1">
       <static>true</static>
-      <pose>-25 30 4 0 0 0</pose>    <!-- z=4 çünkü yükseklik=8, merkez 8/2=4 -->
+      <pose>-25 30 4 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>12 8 8</size></box>  <!-- 12m x 8m taban, 8m yüksek -->
-          </geometry>
+          <geometry><box><size>12 8 8</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>12 8 8</size></box>
-          </geometry>
+          <geometry><box><size>12 8 8</size></box></geometry>
           <material>
-            <ambient>0.6 0.55 0.45 1</ambient>  <!-- Bej/kum rengi -->
+            <ambient>0.6 0.55 0.45 1</ambient>
             <diffuse>0.6 0.55 0.45 1</diffuse>
           </material>
         </visual>
       </link>
     </model>
 
-    <!-- B2: Orta bina, B1'in yanında — aralarında dar geçit -->
     <model name="building_2">
       <static>true</static>
-      <pose>-25 20 3 0 0 0</pose>    <!-- B1'e 2m mesafe (30-8/2 - 20-6/2 = 2m gap) -->
+      <pose>-25 20 3 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>10 6 6</size></box>  <!-- 10m x 6m taban, 6m yüksek -->
-          </geometry>
+          <geometry><box><size>10 6 6</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>10 6 6</size></box>
-          </geometry>
+          <geometry><box><size>10 6 6</size></box></geometry>
           <material>
             <ambient>0.55 0.5 0.45 1</ambient>
             <diffuse>0.55 0.5 0.45 1</diffuse>
@@ -169,20 +164,15 @@
       </link>
     </model>
 
-    <!-- B3: Küçük bina, güneybatı — B1'in arkasında -->
     <model name="building_3">
       <static>true</static>
-      <pose>-32 25 2.5 0 0 0.4</pose>  <!-- yaw=0.4 rad (~23°) hafif döndürülmüş, daha doğal -->
+      <pose>-32 25 2.5 0 0 0.4</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>6 6 5</size></box>  <!-- 6m x 6m taban, 5m yüksek -->
-          </geometry>
+          <geometry><box><size>6 6 5</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>6 6 5</size></box>
-          </geometry>
+          <geometry><box><size>6 6 5</size></box></geometry>
           <material>
             <ambient>0.5 0.45 0.4 1</ambient>
             <diffuse>0.5 0.45 0.4 1</diffuse>
@@ -191,22 +181,17 @@
       </link>
     </model>
 
-    <!-- === ORTA BÖLGE: Birkaç dağınık bina === -->
+    <!-- === ORTA === -->
 
-    <!-- B4: Tek bina, kuzeydoğu — açık alanın kenarında -->
     <model name="building_4">
       <static>true</static>
       <pose>10 25 5 0 0 0.2</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>8 10 10</size></box>  <!-- 8m x 10m taban, 10m yüksek (en yüksek bina) -->
-          </geometry>
+          <geometry><box><size>8 10 10</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>8 10 10</size></box>
-          </geometry>
+          <geometry><box><size>8 10 10</size></box></geometry>
           <material>
             <ambient>0.65 0.6 0.55 1</ambient>
             <diffuse>0.65 0.6 0.55 1</diffuse>
@@ -215,44 +200,34 @@
       </link>
     </model>
 
-    <!-- === GÜNEY TARAFI: Orta yoğunlukta === -->
+    <!-- === GÜNEY === -->
 
-    <!-- B5: Geniş alçak bina, güneybatı -->
     <model name="building_5">
       <static>true</static>
       <pose>-20 -20 2 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>15 10 4</size></box>  <!-- 15m x 10m taban, 4m yüksek (depo tipi) -->
-          </geometry>
+          <geometry><box><size>15 10 4</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>15 10 4</size></box>
-          </geometry>
+          <geometry><box><size>15 10 4</size></box></geometry>
           <material>
-            <ambient>0.5 0.5 0.5 1</ambient>  <!-- Gri — endüstriyel -->
+            <ambient>0.5 0.5 0.5 1</ambient>
             <diffuse>0.5 0.5 0.5 1</diffuse>
           </material>
         </visual>
       </link>
     </model>
 
-    <!-- B6: Orta bina, güney merkez -->
     <model name="building_6">
       <static>true</static>
       <pose>0 -25 3.5 0 0 -0.3</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>8 8 7</size></box>
-          </geometry>
+          <geometry><box><size>8 8 7</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>8 8 7</size></box>
-          </geometry>
+          <geometry><box><size>8 8 7</size></box></geometry>
           <material>
             <ambient>0.6 0.5 0.4 1</ambient>
             <diffuse>0.6 0.5 0.4 1</diffuse>
@@ -261,20 +236,15 @@
       </link>
     </model>
 
-    <!-- B7: Küçük bina, B6'nın yanında — aralarında person geçebilir -->
     <model name="building_7">
       <static>true</static>
       <pose>10 -22 2.5 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <box><size>5 5 5</size></box>
-          </geometry>
+          <geometry><box><size>5 5 5</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <box><size>5 5 5</size></box>
-          </geometry>
+          <geometry><box><size>5 5 5</size></box></geometry>
           <material>
             <ambient>0.55 0.55 0.5 1</ambient>
             <diffuse>0.55 0.55 0.5 1</diffuse>
@@ -282,17 +252,6 @@
         </visual>
       </link>
     </model>
-
-    <!-- ============================================================
-         SPAWN POZİSYONLARI (referans — drone'lar burada spawn olacak)
-         
-         Bunlar sadece yorum, launch file'da kullanılacak:
-         Drone 0: 0 0 0 (merkez)
-         Drone 1: 20 0 0 (doğuda, açık alanda)
-         
-         Person spawn (ileride eklenecek):
-         Batı bina bölgesinde, ör: -25 25 0
-         ============================================================ -->
 
   </world>
 </sdf>
