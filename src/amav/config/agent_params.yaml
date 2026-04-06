@@ -1,0 +1,32 @@
+# AMAV - Single Agent Configuration
+# Each drone gets its own copy with agent_id overridden
+
+camera_node:
+  ros__parameters:
+    agent_id: "drone_0"
+    input_topic: "/camera/image_raw"
+    output_topic: "camera/image"
+
+detector_node:
+  ros__parameters:
+    agent_id: "drone_0"
+    model_path: "yolov8n.pt"
+    confidence_threshold: 0.25
+    input_topic: "camera/image"
+    output_topic: "detections"
+
+tracker_node:
+  ros__parameters:
+    agent_id: "drone_0"
+    input_topic: "detections"
+    output_topic: "tracked_objects"
+    max_lost_frames: 30
+
+decision_node:
+  ros__parameters:
+    agent_id: "drone_0"
+    confidence_low_threshold: 0.4
+    confidence_critical_threshold: 0.2
+    lost_frames_handoff_trigger: 15
+    input_topic: "tracked_objects"
+    status_topic: "agent_status"

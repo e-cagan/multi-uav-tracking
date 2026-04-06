@@ -1,0 +1,20 @@
+# Handoff request: transfer tracking responsibility between agents
+# Called by coordinator_node on a specific agent's service endpoint
+
+# === Request ===
+string requesting_agent_id        # Who is giving up the target
+int32 target_track_id             # ByteTrack ID of the target
+geometry_msgs/Point target_last_position  # Last known 3D position (world frame)
+amav_interfaces/BoundingBox2D target_last_bbox  # Last seen bbox
+
+# Why the handoff is happening
+uint8 REASON_LOW_CONFIDENCE=0
+uint8 REASON_OCCLUSION=1
+uint8 REASON_OUT_OF_RANGE=2
+uint8 REASON_LOW_FPS=3
+uint8 reason
+---
+# === Response ===
+bool accepted                     # Did the agent accept the handoff?
+string accepting_agent_id         # Who accepted (for logging)
+string reject_reason              # If not accepted, why
