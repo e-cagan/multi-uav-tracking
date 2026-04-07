@@ -6,7 +6,6 @@ Subscribes to camera/image, publishes DetectionArray.
 import time
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from amav_interfaces.msg import Detection, DetectionArray
 from cv_bridge import CvBridge
@@ -32,7 +31,7 @@ class DetectorNode(Node):
             Image,
             input_topic,
             self._image_callback,
-            qos_profile_sensor_data,
+            10,
         )
 
         self.publisher = self.create_publisher(
