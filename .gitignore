@@ -23,3 +23,6 @@ __pycache__/
 env/
 venv/
 .venv
+
+# YOLO
+*.pt
