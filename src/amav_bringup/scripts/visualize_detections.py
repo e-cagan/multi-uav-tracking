@@ -6,7 +6,7 @@ import cv2
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from amav_interfaces.msg import DetectionArray, TrackedObjectArray, TrackedObject
+from amav_interfaces.msg import DetectionArray, TrackedObjectArray, TrackedObject, AgentStatus
 from cv_bridge import CvBridge
 
 
@@ -17,13 +17,16 @@ class VisualizerNode(Node):
         self.declare_parameter('camera_topic', 'camera/image')
         self.declare_parameter('detection_topic', 'detections')
         self.declare_parameter('tracking_topic', 'tracked_objects')
+        self.declare_parameter('status_topic', 'agent_status')
 
         camera_topic = self.get_parameter('camera_topic').value
         detection_topic = self.get_parameter('detection_topic').value
         tracking_topic = self.get_parameter('tracking_topic').value
+        status_topic = self.get_parameter('status_topic').value
 
         self.cvb = CvBridge()
         self.latest_image = None
+        self.current_agent_status = None # Store the latest status
 
         # Define a color palette for different track IDs (BGR format for OpenCV)
         self.COLORS = [
@@ -44,6 +47,15 @@ class VisualizerNode(Node):
             (128, 128, 128) # Gray
         ]
 
+        # State mapping dictionary to convert uint8 to string for visualizer
+        self.STATE_NAMES = {
+            AgentStatus.STATE_IDLE: "IDLE",
+            AgentStatus.STATE_SEARCHING: "SEARCHING",
+            AgentStatus.STATE_TRACKING: "TRACKING",
+            AgentStatus.STATE_APPROACHING: "APPROACHING",
+            AgentStatus.STATE_HANDOFF: "HANDOFF"
+        }
+
         self.cam_sub = self.create_subscription(
             Image,
             camera_topic,
@@ -58,7 +70,6 @@ class VisualizerNode(Node):
             10
         )
 
-        # 2) Subscription for tracked objects already exists, will map to updated track_callback
         self.track_sub = self.create_subscription(
             TrackedObjectArray,
             tracking_topic,
@@ -66,11 +77,23 @@ class VisualizerNode(Node):
             10
         )
 
-        self.get_logger().info(f"Visualizer node started. Listening to '{camera_topic}', '{detection_topic}', and '{tracking_topic}'")
+        # Subscription for AgentStatus
+        self.status_sub = self.create_subscription(
+            AgentStatus,
+            status_topic,
+            self.status_callback,
+            10
+        )
+
+        self.get_logger().info(f"Visualizer node started. Listening to '{camera_topic}', '{detection_topic}', '{tracking_topic}' and '{status_topic}'")
 
     def cam_callback(self, msg: Image):
         # Save the latest OpenCV image
         self.latest_image = self.cvb.imgmsg_to_cv2(img_msg=msg, desired_encoding="bgr8")
+        
+    def status_callback(self, msg: AgentStatus):
+        # Update the latest agent status
+        self.current_agent_status = msg
 
     def det_callback(self, msg: DetectionArray):
         # Wait if no camera image exists
@@ -160,8 +183,26 @@ class VisualizerNode(Node):
         fps_text = f"Tracker FPS: {msg.tracker_fps:.1f}"
         cv2.putText(display_img, fps_text, (10, 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    
+        # Display Agent Status
+        if self.current_agent_status:
+            status = self.current_agent_status
+            state_str = self.STATE_NAMES.get(status.state, "UNKNOWN")
+            
+            # Format: State: TRACKING | Target: #2193 | Conf: 0.82
+            if status.tracked_object_id != -1:
+                agent_info = f"State: {state_str} | Target: #{status.tracked_object_id} | Conf: {status.track_confidence:.2f}"
+            else:
+                agent_info = f"State: {state_str} | Target: None | Conf: 0.00"
+                
+            # Draw a slight background for readability
+            text_size = cv2.getTextSize(agent_info, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+            cv2.rectangle(display_img, (10, 45), (10 + text_size[0], 45 - text_size[1] - 5), (0, 0, 0), -1)
+            
+            cv2.putText(display_img, agent_info, (10, 40), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2) # Yellow color
 
-        # 5) Display the tracking image on a separate OpenCV window
+        # Display the tracking image on a separate OpenCV window
         cv2.imshow("ByteTrack Tracking", display_img)
         cv2.waitKey(1)
 
