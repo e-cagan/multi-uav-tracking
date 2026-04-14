@@ -109,6 +109,7 @@ class DecisionNode(Node):
     def _make_pose(self, x, y, z) -> PoseStamped:
         """Creates PoseStamped message with float type casting since it's necessary for PoseStamped."""
         msg = PoseStamped()
+        msg.header.frame_id = 'map'
         msg.pose.position.x = float(x)
         msg.pose.position.y = float(y)
         msg.pose.position.z = float(z)
@@ -140,6 +141,8 @@ class DecisionNode(Node):
         msg.state = self.state
         msg.tracked_object_id = self.current_target_id
         msg.track_confidence = self.current_target_confidence
+        msg.tracker_fps = self.latest_tracker_fps
+        msg.current_resolution_scale = 1.0
 
         self.status_pub.publish(msg=msg)
 
