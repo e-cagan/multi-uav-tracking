@@ -69,13 +69,13 @@ class DecisionNode(Node):
             SetMode,
             '/mavros/set_mode'
         )
-        self.set_mode_req = SetMode().Request()
+        self.set_mode_req = SetMode.Request()
 
         self.cmd_bool_cli = self.create_client(
             CommandBool,
             '/mavros/cmd/arming'
         )
-        self.cmd_bool_req = CommandBool().Request()
+        self.cmd_bool_req = CommandBool.Request()
 
         # Timer
         self.timer = self.create_timer(timer_period_sec=0.05, callback=self._setpoint_timer_callback)
@@ -107,11 +107,11 @@ class DecisionNode(Node):
 
     # Helper methods
     def _make_pose(self, x, y, z) -> PoseStamped:
-        """PoseStamped oluştur"""
+        """Creates PoseStamped message with float type casting since it's necessary for PoseStamped."""
         msg = PoseStamped()
-        msg.pose.position.x = x
-        msg.pose.position.y = y
-        msg.pose.position.z = z
+        msg.pose.position.x = float(x)
+        msg.pose.position.y = float(y)
+        msg.pose.position.z = float(z)
 
         return msg
 
@@ -127,7 +127,7 @@ class DecisionNode(Node):
         return math.sqrt(dx*dx + dy*dy + dz*dz)
 
     def _publish_agent_status(self, msg_header):
-        """AgentStatus doldur ve publish et"""
+        """Fills out AgentStatus message fields and publishes the message."""
 
         msg = AgentStatus()
         msg.header = msg_header

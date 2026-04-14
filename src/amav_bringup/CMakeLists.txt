@@ -32,4 +32,10 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Install the custom python scripts
+install(PROGRAMS
+  scripts/visualize_detections.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()

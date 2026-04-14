@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Module for visualizing detections in YOLO inference and ByteTrack tracking.
 """

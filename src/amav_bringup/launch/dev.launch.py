@@ -117,6 +117,28 @@ def generate_launch_description():
         output='screen',
     )
 
+    # decision_node: Decisions based on state machine
+    decision_node = Node(
+        package='amav',
+        executable='decision_node',
+        name='decision_node',
+        parameters=[{
+            'agent_id': LaunchConfiguration('agent_id'),
+            'input_topic': 'tracked_objects',
+            'status_topic': 'agent_status',
+            'confidence_low_threshold': 0.4,
+        }],
+        output='screen',
+    )
+
+    # visualizer_node: Visualizes detections, tracking and agent status
+    visualizer_node = Node(
+        package='amav_bringup',
+        executable='visualize_detections.py',
+        name='visualizer_node',
+        output='screen'
+    )
+
     return LaunchDescription([
         # Arguments
         agent_id_arg,
@@ -130,4 +152,6 @@ def generate_launch_description():
         camera_node,
         detector_node,
         tracker_node,
+        decision_node,
+        visualizer_node,
     ])
