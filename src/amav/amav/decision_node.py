@@ -26,6 +26,8 @@ class DecisionNode(Node):
         self.declare_parameter('waypoint_reached_threshold', 2.0)
         self.declare_parameter('input_topic', 'tracked_objects')
         self.declare_parameter('status_topic', 'agent_status')
+        self.declare_parameter('mavros_prefix', '/mavros')
+        prefix = self.get_parameter('mavros_prefix').value
 
         self.agent_id = self.get_parameter('agent_id').value
 
@@ -39,7 +41,7 @@ class DecisionNode(Node):
 
         self.pose_sub = self.create_subscription(
             PoseStamped,
-            '/mavros/local_position/pose',
+            f'{prefix}/local_position/pose',
             self._pose_callback,
             10,
         )
@@ -53,7 +55,7 @@ class DecisionNode(Node):
 
         self.setpoint_pub = self.create_publisher(
             PoseStamped,
-            '/mavros/setpoint_position/local',
+            f'{prefix}/setpoint_position/local',
             10
         )
 
@@ -67,13 +69,13 @@ class DecisionNode(Node):
         # Service clients
         self.set_mode_cli = self.create_client(
             SetMode,
-            '/mavros/set_mode'
+            f'{prefix}/set_mode'
         )
         self.set_mode_req = SetMode.Request()
 
         self.cmd_bool_cli = self.create_client(
             CommandBool,
-            '/mavros/cmd/arming'
+            f'{prefix}/cmd/arming'
         )
         self.cmd_bool_req = CommandBool.Request()
 
@@ -274,10 +276,36 @@ class DecisionNode(Node):
         self._publish_agent_status(msg.header)
 
     def _handoff_callback(self, request, response):
-        # TODO: Decide whether to accept handoff based on current state
-        response.accepted = False
-        response.accepting_agent_id = self.agent_id
-        response.reject_reason = 'Not implemented yet'
+        self.get_logger().info(f'Received handoff request from {request.requesting_agent_id} for target #{request.target_track_id}')
+        
+        # Accept the handoff only if we are not busy
+        if self.state in [AgentStatus.STATE_IDLE, AgentStatus.STATE_SEARCHING]:
+            response.accepted = True
+            response.accepting_agent_id = self.agent_id
+            response.reject_reason = ''
+            
+            # IMPORTANT: We route the drone to the target's last known location.
+            # However, our local tracker will assign a completely NEW ID to the person.
+            # Therefore, we leave current_target_id as -1 and stay in the SEARCHING state.
+            # Once we arrive and the camera spots the person, the tracker will naturally 
+            # pick it up and transition to the TRACKING state.
+            self.current_target_id = -1
+            self.state = AgentStatus.STATE_SEARCHING
+            
+            self.current_setpoint = self._make_pose(
+                request.target_last_position.x,
+                request.target_last_position.y,
+                self.get_parameter('search_altitude').value
+            )
+            
+            self.get_logger().info(f'Handoff Accepted! Rerouting to x: {request.target_last_position.x:.1f}, y: {request.target_last_position.y:.1f}')
+            
+        else:
+            response.accepted = False
+            response.accepting_agent_id = self.agent_id
+            response.reject_reason = f'Busy in state: {self.state}'
+            self.get_logger().warn(f'Rejected handoff from {request.requesting_agent_id} (Busy)')
+            
         return response
 
 
