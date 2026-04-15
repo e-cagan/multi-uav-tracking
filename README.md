@@ -306,6 +306,22 @@ ros2 launch amav_bringup multi_agent.launch.py
 
 **Coordinator uses service calls, not topics:** Handoff requires acknowledgment — “did you accept?” Topics are fire-and-forget. ROS2 services provide the request-response pattern needed for reliable handoff.
 
+## Docker Deployment (Recommended)
+
+To avoid dependency issues and run the perception stack in an isolated environment, you can use the provided Docker container. 
+*Note: PX4 SITL and Gazebo must still run on the host machine.*
+
+1. **Build the image:**
+   ```bash
+   cd ~/amav_ws
+   docker build -t amav_system:latest .
+  
+2. **Run the container:**
+   ```bash
+   docker run -it --rm --net=host amav_system:latest ros2 launch amav_bringup multi_agent.launch.py
+
+This will start the AMAV multi-agent system inside the container. Make sure to run the PX4 SITL and Gazebo on the host before launching the container.
+
 ## Known Limitations
 
 - **Gazebo Garden single camera:** The ogre2 render engine in Gazebo Garden cannot reliably initialize multiple camera sensors in a single simulation (libEGL context limitation on some GPU/driver combinations). drone_1 runs without a camera and operates on coordinate-based handoff only. In a real deployment or with Gazebo Harmonic, each drone would have its own camera and full perception pipeline.

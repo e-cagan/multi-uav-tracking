@@ -1,0 +1,23 @@
+# ROS 2 Build Artifacts
+build/
+install/
+log/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Git & IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# PX4
+PX4-Autopilot/
