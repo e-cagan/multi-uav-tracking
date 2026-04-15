@@ -8,6 +8,7 @@ import cv2
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from amav_interfaces.msg import AgentStatus
 from cv_bridge import CvBridge
 
 
@@ -29,6 +30,13 @@ class CameraNode(Node):
             Image,
             input_topic,
             self._image_callback,
+            10,
+        )
+
+        self.status_sub = self.create_subscription(
+            AgentStatus,
+            'agent_status',
+            self._status_callback,
             10,
         )
 
@@ -78,6 +86,12 @@ class CameraNode(Node):
 
         # Finally, publish the message
         self.publisher.publish(msg_pub)
+
+    def _status_callback(self, msg: AgentStatus):
+        # Apply resolution change
+        if self.resolution_scale != msg.current_resolution_scale:
+            self.resolution_scale = msg.current_resolution_scale
+            self.get_logger().info(f'Resolution scale updated dynamically to: {self.resolution_scale}')
 
 
 def main(args=None):

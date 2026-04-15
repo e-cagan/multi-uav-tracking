@@ -94,6 +94,7 @@ class DecisionNode(Node):
         
         # State variables
         self.state = AgentStatus.STATE_IDLE
+        self.current_resolution_scale = 1.0
         self.current_target_id = -1
         self.current_target_confidence = 0.0
         self.current_pose = None               # Updates from _pose_callback
@@ -144,7 +145,7 @@ class DecisionNode(Node):
         msg.tracked_object_id = self.current_target_id
         msg.track_confidence = self.current_target_confidence
         msg.tracker_fps = self.latest_tracker_fps
-        msg.current_resolution_scale = 1.0
+        msg.current_resolution_scale = self.current_resolution_scale
 
         self.status_pub.publish(msg=msg)
 
@@ -192,6 +193,15 @@ class DecisionNode(Node):
         # Take tracker FPS and old state to track
         self.latest_tracker_fps = msg.tracker_fps
         old_state = self.state
+
+        # Latency-aware Resolution Control
+        if self.latest_tracker_fps > 0:  # Pass when system is opened up since the initial FPS would be 0
+            if self.latest_tracker_fps < 15.0 and self.current_resolution_scale == 1.0:
+                self.current_resolution_scale = 0.5
+                self.get_logger().warn(f'Low FPS ({self.latest_tracker_fps:.1f})! Lowering resolution scale to 0.5')
+            elif self.latest_tracker_fps > 25.0 and self.current_resolution_scale == 0.5:
+                self.current_resolution_scale = 1.0
+                self.get_logger().info(f'FPS stable ({self.latest_tracker_fps:.1f}). Restoring resolution scale to 1.0')
 
         # Look for the target
         target = None
